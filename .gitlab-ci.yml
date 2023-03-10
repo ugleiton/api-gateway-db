@@ -18,4 +18,4 @@ docker-build-latest:
     - docker build --pull -f Dockerfile -t "$CI_REGISTRY_IMAGE:latest" .
     - docker push "$CI_REGISTRY_IMAGE:latest"
   only:
-    - master
+    - main
