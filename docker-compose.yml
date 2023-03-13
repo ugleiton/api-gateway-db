@@ -9,4 +9,5 @@ services:
     environment:
       - TRINO_HOST=localhost
       - TRINO_PORT=8080
+      - TOKEN_AUTH=QL9oae3MzpCaXZen3qTjHFK
       

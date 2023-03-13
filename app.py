@@ -1,4 +1,5 @@
 import asyncio
+from typing import Awaitable, Callable
 import aiotrino
 import pandas as pd
 from aiohttp import web
@@ -6,17 +7,22 @@ import logging
 import os
 from io import BytesIO
 
-logger = logging.getLogger(__name__)
 
-TRINO_HOST = USER = os.getenv('TRINO_HOST','localhost')
-TRINO_PORT = USER = int(os.getenv('TRINO_PORT','8080'))
+logger = logging.getLogger("asyncio")
+logger.setLevel(logging.DEBUG)
+
+TRINO_HOST = os.getenv('TRINO_HOST','localhost')
+TRINO_PORT = int(os.getenv('TRINO_PORT','8080'))
+TOKEN_AUTH = os.getenv('TOKEN_AUTH')
 
 async def handle_query(request):
     conn = aiotrino.dbapi.connect(host=TRINO_HOST, port=TRINO_PORT, user="sync")
     cursor = await conn.cursor()
-    query = await request.json()
+    body = await request.json()
     type = request.match_info.get('type')
-    await cursor.execute(query['query'])
+    query = body['query']
+    logger.debug(f"run: {type} for query : {query}")
+    await cursor.execute(query)
     rows = await cursor.fetchall()
     columns = [desc[0] for desc in cursor.description]
     df = pd.DataFrame(rows, columns=columns)
@@ -47,8 +53,24 @@ async def format_type(df: pd.DataFrame, type: str):
     response = web.Response(text='Tipo não identificado')
     return response
 
+@web.middleware
+async def auth_middleware(
+    request: web.Request,
+    handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
+) -> web.StreamResponse:
+    try:
+        token = request.headers.get('Authorization', None)
+        if token != TOKEN_AUTH:
+            raise web.HTTPForbidden(text="token nao autorizado")
+        return await handler(request)
+    except:
+        raise
+
+async def auth(request):
+    print(f"classe:{request.headers['Host']}")
+
 async def init_app():
-    app = web.Application()
+    app = web.Application(middlewares=[auth_middleware])
     app.add_routes([
         web.post('/query/{type}', handle_query)
     ])
