@@ -23,9 +23,12 @@ async def handle_query(request):
     query = body['query']
     logger.debug(f"run: {type} for query : {query}")
     await cursor.execute(query)
-    rows = await cursor.fetchall()
+    result = await cursor.fetchall()
+    rows = remove_tz_from_rows(result)
+    print(rows[:2])
     columns = [desc[0] for desc in cursor.description]
     df = pd.DataFrame(rows, columns=columns)
+    # df = remove_tz_from_rows(df)
     await conn.close()
     return await format_type(df, type)
 
@@ -68,6 +71,26 @@ async def auth_middleware(
 
 async def auth(request):
     print(f"classe:{request.headers['Host']}")
+
+def remove_tz_from_rows(rows):
+    rownum = []
+    for row in rows[:3]:
+        for column, value in enumerate(row):
+            if len(str(row[column])) > 19 and (str(value).endswith('UTC') or str(row[column])[-6] in ['+','-']):
+                if column not in rownum:
+                    rownum.append(column)
+    print(f"ajustando colunas {rownum}")
+    for row in rows:
+        for column in rownum:
+            if str(row[column])[-6] in ['+','-']:
+                row[column] = str(row[column])[:-6]
+            elif str(value).endswith('UTC'):
+                row[column] = row[column].replace(' UTC','')
+
+    return rows
+
+
+    return df
 
 async def init_app():
     app = web.Application(middlewares=[auth_middleware])
