@@ -21,14 +21,13 @@ async def handle_query(request):
     body = await request.json()
     type = request.match_info.get('type')
     query = body['query']
-    logger.debug(f"run: {type} for query : {query}")
+    print(f"run: {type} for query : {query}")
     await cursor.execute(query)
     result = await cursor.fetchall()
     rows = remove_tz_from_rows(result)
-    print(rows[:2])
     columns = [desc[0] for desc in cursor.description]
+    print(f"return: {len(rows)} rows for query : {query}")
     df = pd.DataFrame(rows, columns=columns)
-    # df = remove_tz_from_rows(df)
     await conn.close()
     return await format_type(df, type)
 
@@ -82,10 +81,14 @@ def remove_tz_from_rows(rows):
     print(f"ajustando colunas {rownum}")
     for row in rows:
         for column in rownum:
-            if str(row[column])[-6] in ['+','-']:
-                row[column] = str(row[column])[:-6]
-            elif str(value).endswith('UTC'):
-                row[column] = row[column].replace(' UTC','')
+            try: 
+                if str(row[column])[-6] in ['+','-']:
+                    row[column] = str(row[column])[:-6]
+                elif str(value).endswith('UTC'):
+                    row[column] = row[column].replace(' UTC','')
+            except Exception as e:
+                print(f"Erro ao verificar {column} em {row}")
+                raise e
 
     return rows
 
@@ -93,7 +96,7 @@ def remove_tz_from_rows(rows):
     return df
 
 async def init_app():
-    app = web.Application(middlewares=[auth_middleware])
+    app = web.Application(middlewares=[auth_middleware],logger=logger)
     app.add_routes([
         web.post('/query/{type}', handle_query)
     ])
