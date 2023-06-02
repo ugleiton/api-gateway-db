@@ -75,14 +75,15 @@ def remove_tz_from_rows(rows):
     rownum = []
     for row in rows[:3]:
         for column, value in enumerate(row):
-            if len(str(row[column])) > 19 and (str(value).endswith('UTC') or str(row[column])[-6] in ['+','-']):
+            if len(str(row[column])) > 19 and (str(value).endswith('UTC') or str(row[column])[-6] in ['+','-']) and ':' in str(value):
                 if column not in rownum:
+                    print(f"formato data para coluna:{column} valor:{value} linha:{row}")
                     rownum.append(column)
     print(f"ajustando colunas {rownum}")
     for row in rows:
         for column in rownum:
-            try: 
-                if str(row[column])[-6] in ['+','-']:
+            try:
+                if row[column] is not None and  len(row[column])>=6 and str(row[column])[-6] in ['+','-']:
                     row[column] = str(row[column])[:-6]
                 elif str(value).endswith('UTC'):
                     row[column] = row[column].replace(' UTC','')
